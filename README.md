@@ -1,7 +1,7 @@
 # llmv-opt-inference
 Optimize a subset of LLVM IR using inference
 
-# Accepted LLVM IR
+## Accepted LLVM IR
 
 Accepts a subset of LLVM IR:
  * Opcodes are limited to arithmetic opcodes:
