@@ -4,6 +4,3 @@ set -e
 rm -rf tmp
 mkdir tmp
 webppl main.wppl --require webppl-fs --require llvm
-#llc program.ll -filetype obj -o program.o
-#gcc program.o -o program
-#./program 1 2 3
