@@ -1,53 +1,30 @@
-// A program is a number of inputs %1..%n, and a list of instructions
-// Return value of the program is %0
-// An instruction is an array of (a, opcode, b, c) where "a = opcode b c"
-// Temporaries are %(n+1) .. %99
-
 // Test cases are the values of %0..%n
-var example_test_cases = [
+var exampleTests = [
   {'inputs': [1, 2, 3], 'output': 6},
   {'inputs': [1, 2, 4], 'output': 7},
   {'inputs': [1, 2, 5], 'output': 8}
 ];
 
 // return %1+%2+%3
-var example_program = llvm.program(3, [llvm.instr(4, 'add', 1, 2), llvm.instr(0, 'add', 4, 3)]);
+var exampleProgram = llvm.program(3, [llvm.instr(4, 'add', 1, 2), llvm.instr(0, 'add', 4, 3)]);
 
 // Given a program, returns a modified program.
-var modify_program = function(program) {
+var modifyProgram = function(program) {
   if (flip(0.1))
     return program;
   //var transformation = uniformDraw([0,1,2,3,4]);
   //if (transformation == 0)
   {
     var idx = randomInteger(program.instrs.length);
-    return modify_program(flip_operands(program, idx));
+    return modifyProgram(flipOperands(program, idx));
   }
 };
 
-var get_instr = function(program, idx) {
-  return program.instrs[idx];
-};
-
-var replace_instr = function(program, idx, instr) {
-  if (idx == 0) {
-    var last = program.instrs.slice(idx+1);
-    return {'inputs': program.inputs, 'instrs': [instr].concat(last) };
-  } else if (idx == program.instrs.length-1) {
-    var first = program.instrs.slice(0,idx);
-    return {'inputs': program.inputs, 'instrs': first.concat(instr) };
-  } else {
-    var first = program.instrs.slice(0,idx);
-    var last = program.instrs.slice(idx+1);
-    return {'inputs': program.inputs, 'instrs': first.concat(instr).concat(last) };
-  }
-};
-
-var flip_operands = function(program, idx) {
+var flipOperands = function(program, idx) {
   // Flip operands for a given instruction
-  var instr = get_instr(program, idx);
-  var new_instr = {'opcode': instr.opcode, 'result': instr.result, 'operands': [instr.operands[1], instr.operands[0]]};
-  return replace_instr(program, idx, new_instr);
+  var instr = llvm.getInstr(program, idx);
+  var newInstr = {'opcode': instr.opcode, 'result': instr.result, 'operands': [instr.operands[1], instr.operands[0]]};
+  return llvm.replaceInstr(program, idx, newInstr);
 };
 
 // Given a program, return an estimate of its performance. Lower is better.
@@ -57,18 +34,12 @@ var performance = function(program) {
 };
 
 // Given a program and a set of test cases, return an estimate of its correctness. Lower is better.
-var correctness = function(program_a, program_b, tests) {
-  var results_a = run(program_a, tests);
-  var results_b = run(program_b, tests);
-  return map2(function(a, b) { return Math.abs(a - b); }, results_a, results_b);
+var correctness = function(programA, programB, tests) {
+  var resultsA = llvm.runTests(programA, tests);
+  var resultsB = llvm.runTests(programB, tests);
+  return map2(function(a, b) { return Math.abs(a - b); }, resultsA, resultsB);
 };
 
-// Compile a run a given program, with the given list of test cases
-var run = function(program, test_cases) {
-  var compiled_program = compile(program);
-};
-
-
-llvm.runTestCases(example_program, example_test_cases);
+correctness(exampleProgram, flipOperands(exampleProgram, 1), exampleTests);
 //console.log(compile_instrs(example_program.instrs));
 //compile_instrs(flip_operands(example_program, 1).instrs);
