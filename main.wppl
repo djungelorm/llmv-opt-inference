@@ -3,6 +3,8 @@
 // An instruction is an array of (a, opcode, b, c) where "a = opcode b c"
 // Temporaries are %(n+1) .. %99
 
+globalStore.exeId = 0;
+
 // Test cases are the values of %0..%n
 var example_test_cases = [
   [1, 2, 3, 6],
@@ -11,24 +13,55 @@ var example_test_cases = [
 
 // return %1+%2+%3
 var example_program = {
-  "inputs": 3,
-  "instrs": [
-    [ 4, "add", 1, 2 ],
-    [ 0, "add", 4, 3 ]
+  'inputs': 3,
+  'instrs': [
+    {'opcode': 'add', 'result': 4, 'operands': [1, 2] },
+    {'opcode': 'add', 'result': 0, 'operands': [4, 3] }
   ]
 };
 
 // Given a program, returns a modified program.
 var modify_program = function(program) {
-  // TODO
-  return program;
+  if (flip(0.1))
+    return program;
+  //var transformation = uniformDraw([0,1,2,3,4]);
+  //if (transformation == 0)
+  {
+    var idx = randomInteger(program.instrs.length);
+    return modify_program(flip_operands(program, idx));
+  }
+};
+
+var get_instr = function(program, idx) {
+  return program.instrs[idx];
+};
+
+var replace_instr = function(program, idx, instr) {
+  if (idx == 0) {
+    var last = program.instrs.slice(idx+1);
+    return {'inputs': program.inputs, 'instrs': [instr].concat(last) };
+  } else if (idx == program.instrs.length-1) {
+    var first = program.instrs.slice(0,idx);
+    return {'inputs': program.inputs, 'instrs': first.concat(instr) };
+  } else {
+    var first = program.instrs.slice(0,idx);
+    var last = program.instrs.slice(idx+1);
+    return {'inputs': program.inputs, 'instrs': first.concat(instr).concat(last) };
+  }
+};
+
+var flip_operands = function(program, idx) {
+  // Flip operands for a given instruction
+  var instr = get_instr(program, idx);
+  var new_instr = {'opcode': instr.opcode, 'result': instr.result, 'operands': [instr.operands[1], instr.operands[0]]};
+  return replace_instr(program, idx, new_instr);
 };
 
 // Given a program, return an estimate of its performance. Lower is better.
 // TODO: make this better by attaching a predicted "latency" for each instruction
 var performance = function(program) {
-  return program["instrs"].length;
-}
+  return program.instrs.length;
+};
 
 // Given a program and a set of test cases, return an estimate of its correctness. Lower is better.
 var correctness = function(program_a, program_b, tests) {
@@ -42,47 +75,7 @@ var run = function(program, test_cases) {
   var compiled_program = compile(program);
 };
 
-// Compile a program to LLVM IR
-var compile = function(program) {
-  var inputs = mapN(function(x) { return "i32 %r"+(x+1); }, program["inputs"]).join(', ');
-  var inputs_extract = mapN(function (x) {
-    return "  %r"+(x+1)+"_ptr = getelementptr inbounds i8*, i8** %argc, i64 "+(x+1)+"\n" +
-           "  %r"+(x+1)+"_str = load i8*, i8** %r"+(x+1)+"_ptr\n" +
-           "  %r"+(x+1)+" = call i32 @atoi(i8* %r"+(x+1)+"_str)"; }, program["inputs"]);
-  return [
-    "; ModuleID = 'program'", "",
-    "declare i32 @atoi(i8*)", "",
-    "declare i32 @printf(i8*, ...)", "",
-    "@.str = private unnamed_addr constant [13 x i8] c\"result = %d\\0A\\00\", align 1", "",
-    "define void @main(i32 %argv, i8** %argc) {",
-    "body:"]
-    .concat(inputs_extract)
-    .concat(
-      "  %r0 = call i32 @program("+inputs+")",
-      "  %ignore = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i32 0, i32 0), i32 %r0)",
-      "  ret void",
-      "}","")
-    .concat(compile_program(program));
-};
 
-var compile_program = function(program) {
-  var inputs = mapN(function(x) { return "i32 %r" + (x+1); }, program["inputs"]);
-  var instrs = compile_instrs(program["instrs"]);
-  return ["define i32 @program(" + inputs.join(", ") + ") {", "body:"]
-        .concat(instrs)
-        .concat("  ret i32 %r0", "}");
-};
-
-var compile_instrs = function(instrs) {
-  if (instrs.length == 0)
-    return [];
-  var code = [compile_instr(instrs[0])];
-  return code.concat(compile_instrs(instrs.slice(1)));
-};
-
-var compile_instr = function(instr) {
-  return "  %r" + instr[0] + " = " + instr[1] + " i32 %r" + instr[2] + ", %r" + instr[3];
-};
-
-compile(example_program, example_test_cases[0])
-  .join("\n");
+llvm.compileExecutable(example_program, "tmp/program");
+//console.log(compile_instrs(example_program.instrs));
+//compile_instrs(flip_operands(example_program, 1).instrs);
