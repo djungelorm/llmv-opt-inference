@@ -1,0 +1,46 @@
+// A program is a list of instructions
+// An instruction is an array of (opcode, a, b, c) where a,b are the inputs and c is the output
+// Inputs to the program are in registers %1 .. %99
+// Output from the program is in register %0
+
+// Test cases are array of memory states of the program
+var example_test_cases = [
+  {1: 0, 0: 0},
+  {1: 1, 0: 2},
+  {1: 2, 0: 4},
+  {1: 3, 0: 8}
+];
+
+var example_program = [
+  [ "add", 1, 1, 0 ]
+];
+
+// Given a program, returns a modified program.
+var modify_program = function(program) {
+  // TODO
+  return program;
+};
+
+// Given a program, return an estimate of its performance. Lower is better.
+// TODO: make this better by attaching a predicted "latency" for each instruction
+var performance = function(program) {
+  return program.length;
+}
+
+// Given a program and a set of test cases, return an estimate of its correctness. Lower is better.
+var correctness = function(program, tests) {
+  // TODO
+  return 0;
+}
+
+// Given a program, and the state of the registers, execute it
+// Returns the resulting memory state
+var execute = function(program, state) {
+  if (program.length > 0) {
+    var instr = program[0];
+    // TODO: modify state based on instruction
+    return execute (program.slice(1), nextState);
+  } else {
+    return state;
+  }
+};
