@@ -25,21 +25,21 @@ var inputProgram = llvm.program(2, [
 var modifyProgram = function(program) {
   if (flip(0.5))
     return program;
-  var transformation = randomInteger(3);
+  var transformation = randomInteger(7);
   if (transformation == 0)
     return modifyProgram(swapInstructions(program));
   else if (transformation == 1)
     return modifyProgram(addInstruction(program));
   else if (transformation == 2)
     return modifyProgram(removeInstruction(program));
-  //else if (transformation == 3)
-  //  return modifyProgram(changeResult(program));
-  //else if (transformation == 4)
-  //  return modifyProgram(changeOpcode(program));
-  //else if (transformation == 5)
-  //  return modifyProgram(changeOperand(program));
-  //else
-  //  return modifyProgram(swapOperands(program));
+  else if (transformation == 3)
+    return modifyProgram(changeResult(program));
+  else if (transformation == 4)
+    return modifyProgram(changeOpcode(program));
+  else if (transformation == 5)
+    return modifyProgram(changeOperand(program));
+  else
+    return modifyProgram(swapOperands(program));
 };
 
 var randomOpcode = function(notOpcode) {
