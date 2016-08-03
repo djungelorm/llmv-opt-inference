@@ -79,7 +79,9 @@ var changeOperand = function(program) {
   var instrIdx = randomInteger(program.instrs.length);
   var instr = llvm.getInstr(program, instrIdx);
   var operandIdx = randomInteger(2);
-  var operands = instr.operands; //TODO: change the operand
+  var operands = mapIndexed(
+    function (idx, operand) { return idx == operandIdx ? randomOperand() : operand;  },
+    instr.operands);
   var newInstr = llvm.instr(instr.result, instr.opcode, operands);
   return llvm.changeInstr(program, instrIdx, newInstr);
 };
@@ -109,7 +111,7 @@ console.log(swapInstructions(exampleProgram).instrs);
 console.log(addInstruction(exampleProgram).instrs);
 console.log(removeInstruction(exampleProgram).instrs);
 console.log(changeOpcode(exampleProgram).instrs);
-//console.log(changeOperand(exampleProgram).instrs);
+console.log(changeOperand(exampleProgram).instrs);
 console.log(swapOperands(exampleProgram).instrs);
 
 undefined;
