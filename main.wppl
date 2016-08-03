@@ -17,18 +17,17 @@ var modifyProgram = function(program) {
     return program;
   var transformation = randomInteger(6);
   if (transformation == 0)
-    var modifiedProgram = swapInstructions(program);
+    return modifyProgram(swapInstructions(program));
   else if (transformation == 1)
-    var modifiedProgram = addInstruction(program);
+    return modifyProgram(addInstruction(program));
   else if (transformation == 2)
-    var modifiedProgram = removeInstruction(program);
+    return modifyProgram(removeInstruction(program));
   else if (transformation == 3)
-    var modifiedProgram = changeOpcode(program);
+    return modifyProgram(changeOpcode(program));
   else if (transformation == 4)
-    var modifiedProgram = changeOperand(program);
+    return modifyProgram(changeOperand(program));
   else
-    var modifiedProgram = swapOperands(program);
-  return modifyProgram(modifiedProgram);
+    return modifyProgram(swapOperands(program));
 };
 
 var randomOpcode = function(notOpcode) {
@@ -100,22 +99,15 @@ var performance = function(program) {
   return program.instrs.length;
 };
 
-// Given a program and a set of test cases, return an estimate of its correctness. Lower is better.
-var correctness = function(programA, programB, tests) {
-  var resultsA = llvm.runTests(programA, tests);
-  var resultsB = llvm.runTests(programB, tests);
-  return map2(function(a, b) { return Math.abs(a - b); }, resultsA, resultsB);
+// Returns a measure of correctness of a program using a set of tests
+var correctness = function(correctProgram, testProgram, tests) {
+  var correctResults = llvm.runTests(correctProgram, tests);
+  var testResults = llvm.runTests(testProgram, tests);
+  if (testResults == undefined)
+    return 1000000; //TODO: replace with infinity
+  return map2(function(a, b) { return Math.abs(a - b); }, correctResults, testResults);
 };
 
-console.log(swapInstructions(exampleProgram).instrs);
-console.log(addInstruction(exampleProgram).instrs);
-console.log(removeInstruction(exampleProgram).instrs);
-console.log(changeOpcode(exampleProgram).instrs);
-console.log(changeOperand(exampleProgram).instrs);
-console.log(swapOperands(exampleProgram).instrs);
-
-undefined;
-
-//correctness(exampleProgram, flipOperands(exampleProgram, 1), exampleTests);
-//console.log(compile_instrs(example_program.instrs));
-//compile_instrs(flip_operands(example_program, 1).instrs);
+var modifiedProgram = modifyProgram(exampleProgram);
+console.log(correctness(exampleProgram, modifiedProgram, exampleTests));
+console.log(performance(exampleProgram));
