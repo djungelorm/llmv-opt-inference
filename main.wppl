@@ -1,3 +1,6 @@
+var opcodes = ['add', 'mul', 'sub', 'div', 'urem', 'srem'];
+var numRegisters = 20;
+
 // Test cases are the values of %0..%n
 var exampleTests = [
   {'inputs': [1, 2, 3], 'output': 6},
@@ -6,25 +9,87 @@ var exampleTests = [
 ];
 
 // return %1+%2+%3
-var exampleProgram = llvm.program(3, [llvm.instr(4, 'add', 1, 2), llvm.instr(0, 'add', 4, 3)]);
+var exampleProgram = llvm.program(3, [llvm.instr(4, 'add', [1, 2]), llvm.instr(0, 'add', [4, 3])]);
 
 // Given a program, returns a modified program.
 var modifyProgram = function(program) {
   if (flip(0.1))
     return program;
-  //var transformation = uniformDraw([0,1,2,3,4]);
-  //if (transformation == 0)
-  {
-    var idx = randomInteger(program.instrs.length);
-    return modifyProgram(flipOperands(program, idx));
-  }
+  var transformation = randomInteger(6);
+  if (transformation == 0)
+    var modifiedProgram = swapInstructions(program);
+  else if (transformation == 1)
+    var modifiedProgram = addInstruction(program);
+  else if (transformation == 2)
+    var modifiedProgram = removeInstruction(program);
+  else if (transformation == 3)
+    var modifiedProgram = changeOpcode(program);
+  else if (transformation == 4)
+    var modifiedProgram = changeOperand(program);
+  else
+    var modifiedProgram = swapOperands(program);
+  return modifyProgram(modifiedProgram);
 };
 
-var flipOperands = function(program, idx) {
-  // Flip operands for a given instruction
+var randomOpcode = function(notOpcode) {
+  return categorical({'vs': opcodes, 'ps': map(function (x) { return x == notOpcode ? 0 : 1; }, opcodes)});
+};
+
+var randomOperand = function(notOperand) {
+  return categorical({
+    'vs': mapN(function (x) { x }, numRegisters),
+    'ps': mapN(function (x) { return x == notOperand ? 0 : 1; }, numRegisters)
+  });
+};
+
+// Remove an instruction
+var swapInstructions = function(program) {
+  var idxA = randomInteger(program.instrs.length);
+  var idxB = randomInteger(program.instrs.length);
+  var instrA = llvm.getInstr(program, idxA);
+  var instrB = llvm.getInstr(program, idxB);
+  return llvm.changeInstr(llvm.changeInstr(program, idxA, instrB), idxB, instrA);
+};
+
+// Add an instruction
+var addInstruction = function(program) {
+  var idx = randomInteger(program.instrs.length+1);
+  var newInstr = llvm.instr(randomOperand(), randomOpcode(), [randomOperand(), randomOperand()]);
+  return llvm.addInstr(program, idx, newInstr);
+};
+
+// Remove an instruction
+var removeInstruction = function(program) {
+  if (program.instrs.length <= 1)
+    return program;
+  var idx = randomInteger(program.instrs.length);
+  return llvm.removeInstr(program, idx);
+};
+
+// Replace an opcode with another opcode
+var changeOpcode = function(program) {
+  var idx = randomInteger(program.instrs.length);
   var instr = llvm.getInstr(program, idx);
-  var newInstr = {'opcode': instr.opcode, 'result': instr.result, 'operands': [instr.operands[1], instr.operands[0]]};
-  return llvm.replaceInstr(program, idx, newInstr);
+  var newInstr = llvm.instr(instr.result, randomOpcode(instr.opcode), instr.operands);
+  return llvm.changeInstr(program, idx, newInstr);
+};
+
+// Replace an operand with another (type equivalent) operand or a constant
+var changeOperand = function(program) {
+  var instrIdx = randomInteger(program.instrs.length);
+  var instr = llvm.getInstr(program, instrIdx);
+  var operandIdx = randomInteger(2);
+  var operands = instr.operands; //TODO: change the operand
+  var newInstr = llvm.instr(instr.result, instr.opcode, operands);
+  return llvm.changeInstr(program, instrIdx, newInstr);
+};
+
+// Flip the operands for an instruction
+var swapOperands = function(program) {
+  var idx = randomInteger(program.instrs.length);
+  var instr = llvm.getInstr(program, idx);
+  var newInstr = llvm.instr(instr.result, instr.opcode, [instr.operands[1], instr.operands[0]]);
+  return llvm.changeInstr(program, idx, newInstr);
 };
 
 // Given a program, return an estimate of its performance. Lower is better.
@@ -40,6 +105,15 @@ var correctness = function(programA, programB, tests) {
   return map2(function(a, b) { return Math.abs(a - b); }, resultsA, resultsB);
 };
 
-correctness(exampleProgram, flipOperands(exampleProgram, 1), exampleTests);
+console.log(swapInstructions(exampleProgram).instrs);
+console.log(addInstruction(exampleProgram).instrs);
+console.log(removeInstruction(exampleProgram).instrs);
+console.log(changeOpcode(exampleProgram).instrs);
+//console.log(changeOperand(exampleProgram).instrs);
+console.log(swapOperands(exampleProgram).instrs);
+
+undefined;
+
+//correctness(exampleProgram, flipOperands(exampleProgram, 1), exampleTests);
 //console.log(compile_instrs(example_program.instrs));
 //compile_instrs(flip_operands(example_program, 1).instrs);
