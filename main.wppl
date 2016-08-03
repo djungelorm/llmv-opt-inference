@@ -1,7 +1,6 @@
 var opcodes = ['add', 'mul', 'sub', 'udiv', 'sdiv', 'urem', 'srem'];
-var numRegisters = 20;
+var numRegisters = 5;
 
-// Test cases are the values of %0..%n
 var tests = [
   {'inputs': [0, 0], 'output': 0},
   {'inputs': [0, 1], 'output': 1},
@@ -17,29 +16,30 @@ var tests = [
   {'inputs': [2, 3], 'output': 5}
 ];
 
-// return %1+%2+%3
 var inputProgram = llvm.program(2, [
-  llvm.instr(3, 'add', [1, 2]),
-  llvm.instr(0, 'add', [1, 2])
+  llvm.instr('%r3', 'add', ['%r1', '%r2']),
+  llvm.instr('%r0', 'add', ['%r1', '%r2'])
 ]);
 
 // Given a program, returns a modified program.
 var modifyProgram = function(program) {
   if (flip(0.5))
     return program;
-  var transformation = randomInteger(6);
+  var transformation = randomInteger(3);
   if (transformation == 0)
     return modifyProgram(swapInstructions(program));
   else if (transformation == 1)
     return modifyProgram(addInstruction(program));
   else if (transformation == 2)
     return modifyProgram(removeInstruction(program));
-  else if (transformation == 3)
-    return modifyProgram(changeOpcode(program));
-  else if (transformation == 4)
-    return modifyProgram(changeOperand(program));
-  else
-    return modifyProgram(swapOperands(program));
+  //else if (transformation == 3)
+  //  return modifyProgram(changeResult(program));
+  //else if (transformation == 4)
+  //  return modifyProgram(changeOpcode(program));
+  //else if (transformation == 5)
+  //  return modifyProgram(changeOperand(program));
+  //else
+  //  return modifyProgram(swapOperands(program));
 };
 
 var randomOpcode = function(notOpcode) {
@@ -47,16 +47,28 @@ var randomOpcode = function(notOpcode) {
 };
 
 var randomOperand = function(notOperand) {
+  if (flip (0.5)) {
+    return categorical({
+      'vs': mapN(function (x) { return '%r'+x; }, numRegisters),
+      'ps': mapN(function (x) { return x == notOperand ? 0 : 1; }, numRegisters) //TODO: is this a good idea?
+    });
+  } else {
+    return randomInteger(-16,16); //TODO: increase larger powers of two?
+  }
+};
+
+var randomResult = function(notOperand) {
   return categorical({
-    'vs': mapN(function (x) { x }, numRegisters),
-    'ps': mapN(function (x) { return x == notOperand ? 0 : 1; }, numRegisters)
+    'vs': mapN(function (x) { return '%r'+x; }, numRegisters),
+    'ps': mapN(function (x) { return x == notOperand ? 0 : 1; }, numRegisters) //TODO: is this a good idea?
   });
 };
 
-// Remove an instruction
+// Swap instructions
 var swapInstructions = function(program) {
   var idxA = randomInteger(program.instrs.length);
   var idxB = randomInteger(program.instrs.length);
+  condition(idxA != idxB);
   var instrA = llvm.getInstr(program, idxA);
   var instrB = llvm.getInstr(program, idxB);
   return llvm.changeInstr(llvm.changeInstr(program, idxA, instrB), idxB, instrA);
@@ -65,7 +77,7 @@ var swapInstructions = function(program) {
 // Add an instruction
 var addInstruction = function(program) {
   var idx = randomInteger(program.instrs.length+1);
-  var newInstr = llvm.instr(randomOperand(), randomOpcode(), [randomOperand(), randomOperand()]);
+  var newInstr = llvm.instr(randomResult(), randomOpcode(), [randomOperand(), randomOperand()]);
   return llvm.addInstr(program, idx, newInstr);
 };
 
@@ -85,19 +97,27 @@ var changeOpcode = function(program) {
   return llvm.changeInstr(program, idx, newInstr);
 };
 
-// Replace an operand with another (type equivalent) operand or a constant
+// Replace a result with another result
+var changeResult = function(program) {
+  var idx = randomInteger(program.instrs.length);
+  var instr = llvm.getInstr(program, idx);
+  var newInstr = llvm.instr(randomResult(instr.result), instr.opcode, instr.operands);
+  return llvm.changeInstr(program, idx, newInstr);
+};
+
+// Replace an operand with another operand
 var changeOperand = function(program) {
   var instrIdx = randomInteger(program.instrs.length);
   var instr = llvm.getInstr(program, instrIdx);
   var operandIdx = randomInteger(2);
   var operands = mapIndexed(
-    function (idx, operand) { return idx == operandIdx ? randomOperand() : operand;  },
+    function (idx, operand) { return idx == operandIdx ? randomOperand(operand) : operand;  },
     instr.operands);
   var newInstr = llvm.instr(instr.result, instr.opcode, operands);
   return llvm.changeInstr(program, instrIdx, newInstr);
 };
 
-// Flip the operands for an instruction
+// Flip the operands
 var swapOperands = function(program) {
   var idx = randomInteger(program.instrs.length);
   var instr = llvm.getInstr(program, idx);
@@ -107,7 +127,7 @@ var swapOperands = function(program) {
 
 // Given a program, return the log probability that it is the most efficient.
 var performanceFactor = function(program) {
-  return -program.instrs.length;
+  return -10*program.instrs.length;
 };
 
 // Returns a measure of correctness of a program using a set of tests
@@ -122,20 +142,23 @@ var correctnessFactor = function(testProgram, tests) {
 
 var query = function() {
   var program = modifyProgram(inputProgram);
-  var c = correctnessFactor(program, tests);
-  factor(c);
-  var p = performanceFactor(program);
-  factor(p);
-  console.log(c, p);
+  factor(correctnessFactor(program, tests));
+  factor(performanceFactor(program));
   return program;
 };
 
+//console.log(llvm.compileInstrs(inputProgram));
+//console.log('output =', llvm.run(inputProgram, [1,2]));
+//var modifiedProgram = modifyProgram(inputProgram);
+//console.log(llvm.compileInstrs(modifiedProgram));
+//console.log('output =', llvm.run(modifiedProgram, [1,2]));
+
+//var program = llvm.program(2, [
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2'])
+//]);
+//console.log(llvm.compileInstrs(program));
+
 var optimizedProgramDist = MCMC(query, {'samples': 1000});
 var optimizedProgram = sample(optimizedProgramDist);
-
 console.log(llvm.compileIR(optimizedProgram));
-llvm.run(optimizedProgram, [1, 2]);
-
-//var modifiedProgram = modifyProgram(exampleProgram);
-//console.log(correctness(exampleProgram, modifiedProgram, exampleTests));
-//console.log(performance(exampleProgram));

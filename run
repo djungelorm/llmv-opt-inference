@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
 
-rm -rf tmp
-mkdir tmp
+rm -rf cache
+mkdir -p cache
 webppl main.wppl --require webppl-fs --require llvm
