@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
-mkdir -p cache
-gcc -c utils.c -o utils.o
+mkdir -p bin cache
+g++ -O3 -std=c++11 compile.cpp -o bin/compile
+gcc -c utils.c -o bin/utils.o
 webppl main.wppl --require webppl-fs --require llvm
