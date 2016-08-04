@@ -1,31 +1,63 @@
-var opcodes = ['add', 'mul', 'sub', 'udiv', 'sdiv', 'urem', 'srem'];
-var numRegisters = 5;
-
-var tests = [
-  {'inputs': [0, 0], 'output': 0},
-  {'inputs': [0, 1], 'output': 1},
-  {'inputs': [0, 2], 'output': 2},
-  {'inputs': [0, 3], 'output': 3},
-  {'inputs': [1, 0], 'output': 1},
-  {'inputs': [1, 1], 'output': 2},
-  {'inputs': [1, 2], 'output': 3},
-  {'inputs': [1, 3], 'output': 4},
-  {'inputs': [2, 0], 'output': 2},
-  {'inputs': [2, 1], 'output': 3},
-  {'inputs': [2, 2], 'output': 4},
-  {'inputs': [2, 3], 'output': 5}
+var opcodes = [
+  'add', 'mul', 'sub', 'udiv', 'sdiv', 'urem', 'srem',
+  'shl', 'lshr', 'ashr', 'and', 'or', 'xor'
 ];
+var numRegisters = 5;
+var minConstant = -2;
+var maxConstant = 2;
 
-var inputProgram = llvm.program(2, [
-  llvm.instr('%r3', 'add', ['%r1', '%r2']),
-  llvm.instr('%r0', 'add', ['%r1', '%r2'])
+var opcodeLatencies = {
+  'add': 4,
+  'mul': 4,
+  'sub': 4,
+  'udiv': 8,
+  'sdiv': 8,
+  'urem': 8,
+  'srem': 8,
+  'shl': 1,
+  'lshr': 1,
+  'ashr': 1,
+  'and': 1,
+  'or': 1,
+  'xor': 1
+};
+
+//var tests = [
+//  [0, 0],
+//  [0, 1],
+//  [0, 2],
+//  [0, 3],
+//  [1, 0],
+//  [1, 1],
+//  [1, 2],
+//  [1, 3],
+//  [2, 0],
+//  [2, 1],
+//  [2, 2],
+//  [2, 3]
+//];
+//var inputProgram = llvm.program(2, [
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2'])
+//]);
+
+var tests = mapN(function (x) { return [x]; }, 10);
+var inputProgram = llvm.program(1, [
+  llvm.instr('%r0', 'mul', ['%r1', 2])
+  //llvm.instr('%r0', 'shl', ['%r1', 1])
 ]);
+
+// Compute correct results by running the input program
+var correctResults = llvm.runTests(inputProgram, tests);
 
 // Given a program, returns a modified program.
 var modifyProgram = function(program) {
-  if (flip(0.5))
+  if (flip(0.75))
     return program;
-  var transformation = randomInteger(7);
+  var transformation = randomInteger(2);
   if (transformation == 0)
     return modifyProgram(swapInstructions(program));
   else if (transformation == 1)
@@ -34,9 +66,9 @@ var modifyProgram = function(program) {
     return modifyProgram(removeInstruction(program));
   else if (transformation == 3)
     return modifyProgram(changeResult(program));
-  else if (transformation == 4)
+  if (transformation == 0)
     return modifyProgram(changeOpcode(program));
-  else if (transformation == 5)
+  else if (transformation == 1)
     return modifyProgram(changeOperand(program));
   else
     return modifyProgram(swapOperands(program));
@@ -53,7 +85,7 @@ var randomOperand = function(notOperand) {
       'ps': mapN(function (x) { return x == notOperand ? 0 : 1; }, numRegisters) //TODO: is this a good idea?
     });
   } else {
-    return randomInteger(-16,16); //TODO: increase larger powers of two?
+    return randomInteger(maxConstant - minConstant) + minConstant;
   }
 };
 
@@ -127,17 +159,19 @@ var swapOperands = function(program) {
 
 // Given a program, return the log probability that it is the most efficient.
 var performanceFactor = function(program) {
-  return -10*program.instrs.length;
+  return -10*reduce(function (a,b) { return a+b; }, 0,
+                    map(function (x) { return opcodeLatencies[x.opcode]; }, program.instrs));
 };
 
 // Returns a measure of correctness of a program using a set of tests
 var correctnessFactor = function(testProgram, tests) {
-  var correctResults = map(function (test) { return test.output; }, tests);
   var testResults = llvm.runTests(testProgram, tests);
   if (testResults == undefined)
     return -Infinity;
-  var diffs = map2(function(a, b) { return (a-b)*(a-b); }, correctResults, testResults);
-  return -Math.sqrt(reduce(function (a,b) { return a+b; }, 0, diffs));
+  var diffs = map2(
+    function(a, b) { return llvm.hammingDistance(a['output-binary'],b['output-binary']); },
+    correctResults, testResults);
+  return -reduce(function (a,b) { return a+b; }, 0, diffs);
 };
 
 var query = function() {
@@ -159,6 +193,12 @@ var query = function() {
 //]);
 //console.log(llvm.compileInstrs(program));
 
-var optimizedProgramDist = MCMC(query, {'samples': 1000});
+console.log('input program correctness =', correctnessFactor(inputProgram, tests));
+console.log('input program performance =', performanceFactor(inputProgram, tests));
+
+var optimizedProgramDist = MCMC(query, {'samples': 10000, 'onlyMAP': true});
 var optimizedProgram = sample(optimizedProgramDist);
-console.log(llvm.compileIR(optimizedProgram));
+
+console.log('optimized program correctness =', correctnessFactor(optimizedProgram, tests));
+console.log('optimized program performance =', performanceFactor(optimizedProgram, tests));
+console.log(llvm.compileInstrs(optimizedProgram));
