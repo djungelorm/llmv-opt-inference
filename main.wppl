@@ -1,10 +1,25 @@
-var tests = mapN(function(x) { return [Math.floor(x/4), x%4]; }, 16);
+//var tests = mapN(function(x) { return [Math.floor(x/4), x%4]; }, 16);
+//var inputProgram = llvm.program(2, [
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2']),
+//  llvm.instr('%r0', 'add', ['%r1', '%r2'])
+//]);
+
+var tests = mapN(function(x) { return [x*4 + 3]; }, 16);
 var inputProgram = llvm.program(2, [
-  llvm.instr('%r0', 'add', ['%r1', '%r2']),
-  llvm.instr('%r0', 'add', ['%r1', '%r2']),
-  llvm.instr('%r0', 'add', ['%r1', '%r2']),
-  llvm.instr('%r0', 'add', ['%r1', '%r2']),
-  llvm.instr('%r0', 'add', ['%r1', '%r2'])
+  llvm.instr('%r2', 'add', ['%r1', '%r1']),
+  llvm.instr('%r3', 'mul', ['%r2', '2']),
+  llvm.instr('%r4', 'add', ['%r3', '1']),
+  llvm.instr('%r4', 'add', ['%r4', '1']),
+  llvm.instr('%r4', 'add', ['%r4', '1']),
+  llvm.instr('%r0', 'sub', ['%r4', '0'])
 ]);
 
 //var tests = mapN(function (x) { return [x-50]; }, 100);
@@ -42,24 +57,30 @@ var opcodeLatencies = {
 var correctResults = llvm.runTests(inputProgram, tests);
 
 // Given a program, returns a modified program.
-var modifyProgram = function(program) {
-  if (flip(0.75))
-    return program;
+var transformProgram = function(program) {
   var transformation = randomInteger(7);
   if (transformation == 0)
-    return modifyProgram(swapInstructions(program));
+    return swapInstructions(program);
   else if (transformation == 1)
-    return modifyProgram(addInstruction(program));
+    return addInstruction(program);
   else if (transformation == 2)
-    return modifyProgram(removeInstruction(program));
+    return removeInstruction(program);
   else if (transformation == 3)
-    return modifyProgram(changeResult(program));
+    return changeResult(program);
   else if (transformation == 4)
-    return modifyProgram(changeOpcode(program));
+    return changeOpcode(program);
   else if (transformation == 5)
-    return modifyProgram(changeOperand(program));
+    return changeOperand(program);
   else
-    return modifyProgram(swapOperands(program));
+    return swapOperands(program);
+};
+
+var modifyProgram = function (program) {
+  if (flip(0.25))
+    return program;
+  var newProgram = transformProgram(program);
+  factor(performanceFactor(newProgram));
+  return modifyProgram(newProgram);
 };
 
 var randomOpcode = function(notOpcode) {
@@ -147,9 +168,13 @@ var swapOperands = function(program) {
 };
 
 // Given a program, return the log probability that it is the most efficient.
+var latency = function(program) {
+  return reduce(function (a,b) { return a+b; }, 0,
+                map(function (x) { return opcodeLatencies[x.opcode]; }, program.instrs));
+};
+
 var performanceFactor = function(program) {
-  return -10*reduce(function (a,b) { return a+b; }, 0,
-                    map(function (x) { return opcodeLatencies[x.opcode]; }, program.instrs));
+  return latency(inputProgram) - latency(program);
 };
 
 // Returns a measure of correctness of a program using a set of tests
@@ -160,26 +185,27 @@ var correctnessFactor = function(testProgram, tests) {
   var diffs = map2(
     function(a, b) { return llvm.hammingDistance(a['output-binary'],b['output-binary']); },
     correctResults, testResults);
-  return -reduce(function (a,b) { return a+b; }, 0, diffs);
+  return -100*reduce(function (a,b) { return a+b; }, 0, diffs);
 };
 
 var query = function() {
   var program = modifyProgram(inputProgram);
   factor(correctnessFactor(program, tests));
-  factor(performanceFactor(program));
-  return program;
+  return {'program': program, 'latency': latency(program)};
 };
 
 console.log('input program correctness =', correctnessFactor(inputProgram, tests));
 console.log('input program performance =', performanceFactor(inputProgram, tests));
 console.log();
 
-var optimizedProgramDist = MCMC(query, {'samples': 1000, 'onlyMAP': true, 'verbose': true});
+var optimizedProgramDist = MCMC(query, {'samples': 10000, 'onlyMAP': true, 'verbose': true, 'justSample': true});
 var optimizedProgram = sample(optimizedProgramDist);
 
-console.log('optimized program correctness =', correctnessFactor(optimizedProgram, tests));
-console.log('optimized program performance =', performanceFactor(optimizedProgram, tests));
+console.log('optimized program correctness =', correctnessFactor(optimizedProgram.program, tests));
+console.log('optimized program performance =', performanceFactor(optimizedProgram.program));
 console.log();
 
-console.log(llvm.compileInstrs(optimizedProgram));
+console.log(llvm.compileInstrs(optimizedProgram.program));
 console.log();
+
+llvm.outputSamples('samples', optimizedProgramDist.samples);
