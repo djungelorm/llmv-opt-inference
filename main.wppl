@@ -198,7 +198,7 @@ console.log('input program correctness =', correctnessFactor(inputProgram, tests
 console.log('input program performance =', performanceFactor(inputProgram, tests));
 console.log();
 
-var optimizedProgramDist = MCMC(query, {'samples': 10000, 'onlyMAP': true, 'verbose': true, 'justSample': true});
+var optimizedProgramDist = MCMC(query, {'samples': 200000, 'onlyMAP': true, 'verbose': true, 'justSample': true});
 var optimizedProgram = sample(optimizedProgramDist);
 
 console.log('optimized program correctness =', correctnessFactor(optimizedProgram.program, tests));
