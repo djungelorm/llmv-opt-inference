@@ -1,4 +1,4 @@
-# llmv-opt-inference
+# llvm-opt-inference
 Optimize a subset of LLVM IR using inference
 
 ## Accepted LLVM IR
